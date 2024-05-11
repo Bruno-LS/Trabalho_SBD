@@ -45,7 +45,7 @@ BEGIN
 	INSERT INTO Pedido (ID_Pedido, Data_Pedido, Pagamento_data, Valor_Total, Tipo_Entrega, Moeda, Endereco1, Endereco2, Endereco3, CEP, Cidade, UF, PAIS, ID_Cliente) SELECT DISTINCT
 	CA.ID_Pedido, CONVERT(DATE, CA.Pedido_data, 23) AS Data_Pedido, CONVERT(DATE, CA.Pagamento_data, 23) AS Pagamento_data, 0, CA.Tipo_Entrega, CA.Moeda, CA.Endereco1, CA.Endereco2, CA.Endereco3, CA.CEP, CA.Cidade, CA.UF, CA.PAIS, CL.ID_cliente FROM Cliente CL INNER JOIN Carga CA ON (CL.Email=CA.Email)
 	LEFT JOIN Pedido PE ON (PE.ID_Pedido=CA.ID_Pedido) WHERE ISNULL(PE.ID_Pedido, '')=''
-	UPDATE Pedido SET Valor_Total = CA.Valor*CA.Quant FROM Carga CA WHERE CA.ID_Pedido=Pedido.ID_Pedido 
+	UPDATE Pedido SET Valor_Total = (SELECT SUM(CA.Valor*CA.Quant) FROM Carga CA WHERE CA.ID_Pedido=Pedido.ID_Pedido) 
 END
 GO
 
@@ -75,8 +75,23 @@ GO
 CREATE PROCEDURE MOVIMENTAR_ESTOQUE
 AS
 BEGIN
-	INSERT INTO Movimenta��o_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT IT.ID_Produto, IT.ID_Pedido, PR.Estoque-IT.Quant AS Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) LEFT JOIN Pedido PE  ON (IT.ID_Pedido=PE.ID_Pedido) ORDER BY PE.Valor_Total DESC
-	UPDATE Produto SET Estoque = MO.Estoque FROM Movimenta��o_Estoque MO WHERE Produto.ID_Produto = MO.ID_Produto;
+-- ATUALIZA O ESTOQUE DE PRODUTO 
+	UPDATE Produto SET Estoque = Estoque-IT.Quant FROM Itens_Pedidos IT WHERE Produto.ID_Produto = IT.ID_Produto;
+
+	INSERT INTO Movimentação_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT IT.ID_Produto, IT.ID_Pedido, PR.Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) LEFT JOIN Pedido PE  ON (IT.ID_Pedido=PE.ID_Pedido) ORDER BY PE.Valor_Total DESC
+
+
+	UPDATE Movimentação_Estoque SET Estoque = IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT WHERE MO.ID_Produto=IT.ID_Produto AND MO.Estoque-IT.Quant>=0
+	
+	UPDATE Movimentação_Estoque SET STATUS_Pedido = 'S', Estoque = MO.Estoque-IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT WHERE MO.ID_Pedido=IT.ID_Pedido
+	
+	
+
+	IF(EXISTS(SELECT STATUS_Pedido FROM Movimentação_Estoque WHERE STATUS_Pedido ='N'))
+	BEGIN
+		EXEC ADMNISTRAR_COMPRAS
+	END
+
 END
 GO
 
@@ -92,27 +107,15 @@ CREATE PROCEDURE ADMNISTRAR_COMPRAS
 AS
 BEGIN
 	INSERT INTO Compras(ID_Produto, Nome_produto, Quant) SELECT PR.ID_Produto, PR.Nome_produto, (PR.Estoque*-1)+10 AS Quant
-	FROM Produto PR	INNER JOIN Movimenta��o_Estoque MO ON (MO.ID_Produto=PR.ID_Produto) WHERE PR.Estoque <= 0
-END
-GO
-
-IF EXISTS (SELECT 1 FROM SYS.objects WHERE TYPE = 'P' AND NAME = 'VENDAS')
-	BEGIN
-		DROP PROCEDURE VENDAS
-	END
-GO
-
-CREATE PROCEDURE VENDAS
-AS
-BEGIN
-	INSERT INTO Compras(ID_Produto, Nome_produto, Quant) SELECT PR.ID_Produto, PR.Nome_produto, (PR.Estoque*-1)+10 AS Quant
-	FROM Produto PR	INNER JOIN Movimenta��o_Estoque MO ON (MO.ID_Produto=PR.ID_Produto) WHERE PR.Estoque <= 0
+	FROM Produto PR	INNER JOIN Movimentação_Estoque MO ON (MO.ID_Produto=PR.ID_Produto) WHERE PR.Estoque <= 0
 END
 GO
 
 
 
 
--- CRIAR O CSV DE COMPRAS DE PRODUTOS
 
+-- AJEITAR A INSERT DA TABELA Movimentação_Estoque, VER DE USAR A INSTRUÇÃO FETCH 
+--ANALISAR TODO O PROJETO COMO FUNCIONARIA CADA ETAPA E COLUNA
+-- AUTOMATIZAR TUDO
  
