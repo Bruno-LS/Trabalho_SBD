@@ -66,37 +66,6 @@ GO
 
 
 
-IF EXISTS (SELECT 1 FROM SYS.objects WHERE TYPE = 'P' AND NAME = 'MOVIMENTAR_ESTOQUE')
-	BEGIN
-		DROP PROCEDURE MOVIMENTAR_ESTOQUE
-	END
-GO
-
-CREATE PROCEDURE MOVIMENTAR_ESTOQUE
-AS
-BEGIN
--- ATUALIZA O ESTOQUE DE PRODUTO 
-	UPDATE Produto SET Estoque = Estoque-IT.Quant FROM Itens_Pedidos IT WHERE Produto.ID_Produto = IT.ID_Produto;
-
-	INSERT INTO Movimentação_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT IT.ID_Produto, IT.ID_Pedido, PR.Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) LEFT JOIN Pedido PE  ON (IT.ID_Pedido=PE.ID_Pedido) ORDER BY PE.Valor_Total DESC
-
-
-	UPDATE Movimentação_Estoque SET Estoque = IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT WHERE MO.ID_Produto=IT.ID_Produto AND MO.Estoque-IT.Quant>=0
-	
-	UPDATE Movimentação_Estoque SET STATUS_Pedido = 'S', Estoque = MO.Estoque-IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT WHERE MO.ID_Pedido=IT.ID_Pedido
-	
-	
-
-	IF(EXISTS(SELECT STATUS_Pedido FROM Movimentação_Estoque WHERE STATUS_Pedido ='N'))
-	BEGIN
-		EXEC ADMNISTRAR_COMPRAS
-	END
-
-END
-GO
-
-
-
 IF EXISTS (SELECT 1 FROM SYS.objects WHERE TYPE = 'P' AND NAME = 'ADMNISTRAR_COMPRAS')
 	BEGIN
 		DROP PROCEDURE ADMNISTRAR_COMPRAS
@@ -106,16 +75,52 @@ GO
 CREATE PROCEDURE ADMNISTRAR_COMPRAS
 AS
 BEGIN
-	INSERT INTO Compras(ID_Produto, Nome_produto, Quant) SELECT PR.ID_Produto, PR.Nome_produto, (PR.Estoque*-1)+10 AS Quant
-	FROM Produto PR	INNER JOIN Movimentação_Estoque MO ON (MO.ID_Produto=PR.ID_Produto) WHERE PR.Estoque <= 0
+	INSERT INTO Compras(ID_Produto, Nome_produto, Quant) SELECT DISTINCT PR.ID_Produto, PR.Nome_produto, IT.Quant
+	FROM Produto PR	INNER JOIN Movimentação_Estoque MO ON (MO.ID_Produto=PR.ID_Produto) INNER JOIN Itens_Pedidos IT ON (MO.ID_Produto=IT.ID_Produto) WHERE MO.STATUS_Pedido = 'N'
+
+END
+GO
+
+
+IF EXISTS (SELECT 1 FROM SYS.objects WHERE TYPE = 'P' AND NAME = 'MOVIMENTAR_ESTOQUE')
+	BEGIN
+		DROP PROCEDURE MOVIMENTAR_ESTOQUE
+	END
+GO
+
+CREATE PROCEDURE MOVIMENTAR_ESTOQUE
+AS
+BEGIN
+	INSERT INTO Movimentação_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT IT.ID_Produto, IT.ID_Pedido, PR.Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) LEFT JOIN Pedido PE  ON (IT.ID_Pedido=PE.ID_Pedido) ORDER BY PE.Valor_Total DESC 
+
+	UPDATE Movimentação_Estoque SET STATUS_Pedido = 'S', Estoque = MO.Estoque-IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT
+	WHERE MO.ID_Pedido=IT.ID_Pedido AND MO.ID_Produto = IT.ID_Produto AND MO.Estoque-IT.Quant>=0
+
+	--ATUALIZA O ESTOQUE DE PRODUTO
+	UPDATE Produto SET Estoque = MO.Estoque FROM Movimentação_Estoque MO WHERE MO.ID_Produto = Produto.ID_Produto
+
+	IF(EXISTS(SELECT STATUS_Pedido FROM Movimentação_Estoque WHERE STATUS_Pedido ='N'))
+	BEGIN
+		EXEC ADMNISTRAR_COMPRAS
+	END
 END
 GO
 
 
 
+IF EXISTS (SELECT 1 FROM SYS.objects WHERE TYPE = 'P' AND NAME = 'LIMPAR_TABELAS')
+	BEGIN
+		DROP PROCEDURE LIMPAR_TABELAS
+	END
+GO
+
+CREATE PROCEDURE LIMPAR_TABELAS
+AS
+BEGIN
+	TRUNCATE TABLE Movimentação_Estoque
+	TRUNCATE TABLE Compras
+	TRUNCATE TABLE Carga
+END
+GO
 
 
--- AJEITAR A INSERT DA TABELA Movimentação_Estoque, VER DE USAR A INSTRUÇÃO FETCH 
---ANALISAR TODO O PROJETO COMO FUNCIONARIA CADA ETAPA E COLUNA
--- AUTOMATIZAR TUDO
- 
