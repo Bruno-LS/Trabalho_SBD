@@ -57,7 +57,7 @@
 	CREATE TABLE Produto(
 		ID_Produto int PRIMARY KEY NOT NULL,
 		Valor float NOT NULL,
-		Estoque int DEFAULT 10,
+		Estoque int DEFAULT 0,
 		Nome_produto varchar(30) NOT NULL,
 		UPC int NOT NULL,
 		SKU int NOT NULL,
@@ -79,7 +79,7 @@
 		ID_Produto int NOT NULL,
 		ID_Pedido int NOT NULL,
 		STATUS_Pedido varchar(1) DEFAULT 'N',
-		Estoque int NOT NULL,--Estoque Destinado ao Determinado Pedido
+		Estoque int NOT NULL,
 		FOREIGN KEY (ID_Produto) REFERENCES Produto(ID_Produto),
 		FOREIGN KEY (ID_Pedido) REFERENCES Pedido(ID_Pedido)
 	)
@@ -94,4 +94,6 @@
 		FOREIGN KEY (ID_Produto) REFERENCES Produto(ID_Produto),
 	)
 	GO
+
+
 
