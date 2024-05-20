@@ -25,7 +25,7 @@ BEGIN
 	INSERT INTO Produto (ID_Produto, Valor, Nome_produto, UPC, SKU) SELECT DISTINCT
 	CA.ID_Produto, CA.Valor, CA.Nome_Produto,CA.UPC, CA.SKU FROM Carga CA LEFT JOIN Produto PD ON (PD.ID_Produto=CA.ID_Produto)
 	WHERE ISNULL(PD.ID_Produto,'')='' AND CA.UPC <> ALL (SELECT UPC FROM Produto)
-	UPDATE Produto SET Estoque = 10
+	--UPDATE Produto SET Estoque = 10
 
 END
 GO
@@ -132,5 +132,3 @@ BEGIN
 	END	
 END
 GO
-
-
