@@ -104,7 +104,7 @@ BEGIN
 	DECLARE @ID_PEDIDO INT
 	--CRIA UM CURSOR PARA OS ID_PEDIDO EM ORDEM DE VALOR
 	DECLARE PR_CURSOR CURSOR FOR
-	SELECT PE.ID_Pedido FROM Pedido PE ORDER BY PE.Valor_Total DESC 
+	SELECT PE.ID_Pedido FROM Pedido PE INNER JOIN Carga CA ON (CA.ID_Pedido = PE.ID_Pedido) ORDER BY PE.Valor_Total DESC 
 
 	OPEN PR_CURSOR
 	FETCH NEXT FROM PR_CURSOR INTO @ID_PEDIDO
@@ -113,7 +113,7 @@ BEGIN
 	BEGIN
 		SET NOCOUNT ON;--SERVE PARA NÃO CONTAR AS LINHAS
 		--INSERE DE ACORDO COM O ID_PEDIDO QUE ESTA EM ORDEM
-		INSERT INTO Movimentação_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT IT.ID_Produto, IT.ID_Pedido, PR.Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) WHERE (IT.ID_Pedido = @ID_PEDIDO)
+		INSERT INTO Movimentação_Estoque (ID_Produto, ID_Pedido, Estoque) SELECT DISTINCT IT.ID_Produto, IT.ID_Pedido, PR.Estoque FROM Produto PR INNER JOIN Itens_Pedidos IT ON (IT.ID_Produto=PR.ID_Produto) WHERE (IT.ID_Pedido = @ID_PEDIDO)
 		
 		UPDATE Movimentação_Estoque SET STATUS_Pedido = 'S', Estoque = MO.Estoque-IT.Quant FROM Movimentação_Estoque MO , Itens_Pedidos IT
 	WHERE (IT.ID_Pedido = @ID_PEDIDO) AND MO.ID_Produto = IT.ID_Produto AND MO.Estoque-IT.Quant>=0
